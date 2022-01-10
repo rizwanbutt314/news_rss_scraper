@@ -1,0 +1,7 @@
+# Files
+*.zip
+*.json
+
+# Folders
+env/
+__pycache__/
