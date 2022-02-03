@@ -197,7 +197,7 @@ def save_to_json(data):
         json.dump(data, outfile)
 
 
-def save_to_db(data):
+def save_to_db(data, source):
     mydb = mysql.connector.connect(
         host=DB_HOST,
         user=DB_USERNAME,
@@ -213,32 +213,24 @@ def save_to_db(data):
     for record in data:
 
         # Check existing entry
-        if record["link"]:
-            sql = f"""SELECT * FROM {DB_TABLE} WHERE title = %s AND link = %s """
-            val = (record['title'], record['link'])
-        else:
-            sql = f"""SELECT * FROM {DB_TABLE} WHERE title = %s """
-            val = (record['title'],)
+        sql = f"""SELECT * FROM {DB_TABLE} WHERE title = %s AND source = %s """
+        val = (record['title'], source)
         mycursor.execute(sql, val)
         myresult = mycursor.fetchone()
         if not myresult:
             filtered_data.append(record)
         else:
             # Update the existing data
-            if record["link"]:
-                sql = f"""UPDATE {DB_TABLE} SET description = %s, date = %s WHERE title = %s AND link = %s"""
-                val = (record['description'], record['date'],
-                       record['title'], record['link'])
-            else:
-                sql = f"""UPDATE {DB_TABLE} SET description = %s, date = %s WHERE title = %s"""
-                val = (record['description'], record['date'], record['title'])
+            sql = f"""UPDATE {DB_TABLE} SET description = %s, _date = %s WHERE title = %s AND source = %s"""
+            val = (record['description'], record['date'],
+                    record['title'], source)
             mycursor.execute(sql, val)
             mydb.commit()
 
     # INSERT data
-    sql = f"INSERT INTO {DB_TABLE} (title, description, link, date) VALUES (%s, %s, %s, %s)"
+    sql = f"INSERT INTO {DB_TABLE} (title, description, link, _date, source) VALUES (%s, %s, %s, %s, %s)"
 
-    data_to_db = [(d["title"], d["description"], d["link"], d["date"])
+    data_to_db = [(d["title"], d["description"], d["link"], d["date"], source)
                   for d in filtered_data]
 
     mycursor.executemany(sql, data_to_db)
@@ -281,13 +273,13 @@ def main():
         data = get_news_data(url, meta)
         print(f"Total News extracted: {len(data)}")
         all_data.extend(data)
+        # Save to database
+        save_to_db(data, meta['name'])
         print(f"END of {meta['name']} ______________________\n ")
 
     # Save to json file
     save_to_json(all_data)
-
-    # Save to database
-    save_to_db(all_data)
+    
 
 
 if __name__ == "__main__":
